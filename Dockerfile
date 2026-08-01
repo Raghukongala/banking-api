@@ -1,22 +1,42 @@
-FROM node:20-slim
+# ==========================
+# Stage 1: Build
+# ==========================
+FROM node:20.19.0-slim AS builder
 
 WORKDIR /app
 
 
-# Copy dependency files
+# Copy dependency files first
 COPY package*.json ./
 
 
-# Update npm to patched version
-RUN npm install -g npm@latest
+# Install exact dependencies
+RUN npm ci
 
 
-# Install dependencies
-RUN npm ci --omit=dev
-
-
-# Copy application
+# Copy application source
 COPY . .
+
+
+# ==========================
+# Stage 2: Production Image
+# ==========================
+FROM node:20.19.0-slim
+
+
+WORKDIR /app
+
+
+# Copy only required application files
+COPY --from=builder /app .
+
+
+# Remove unnecessary npm cache
+RUN npm cache clean --force
+
+
+# Run application as non-root user
+USER node
 
 
 EXPOSE 3000
