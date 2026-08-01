@@ -105,6 +105,8 @@ jobs:
 
       # -----------------------------
       # Verify Docker Image
+      # (npm is intentionally stripped from the final image via the
+      #  multi-stage Dockerfile, so only node itself is checked here)
       # -----------------------------
       - name: Verify Docker Image
         run: |
@@ -113,14 +115,6 @@ jobs:
           docker run --rm \
           $IMAGE_NAME:$IMAGE_TAG \
           node --version
-
-          docker run --rm \
-          $IMAGE_NAME:$IMAGE_TAG \
-          npm --version
-
-          docker run --rm \
-          $IMAGE_NAME:$IMAGE_TAG \
-          npm ls tar || true
 
 
 
