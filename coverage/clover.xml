@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<coverage generated="1785611047141" clover="3.2.0">
+  <project timestamp="1785611047141" name="All files">
+    <metrics statements="19" coveredstatements="10" conditionals="4" coveredconditionals="3" methods="2" coveredmethods="1" elements="25" coveredelements="14" complexity="0" loc="19" ncloc="19" packages="1" files="1" classes="1"/>
+    <file name="app.js" path="C:\Users\deept\banking-api\app.js">
+      <metrics statements="19" coveredstatements="10" conditionals="4" coveredconditionals="3" methods="2" coveredmethods="1"/>
+      <line num="1" count="1" type="stmt"/>
+      <line num="3" count="1" type="stmt"/>
+      <line num="5" count="1" type="stmt"/>
+      <line num="7" count="2" type="cond" truecount="2" falsecount="0"/>
+      <line num="8" count="1" type="stmt"/>
+      <line num="12" count="1" type="stmt"/>
+      <line num="20" count="1" type="stmt"/>
+      <line num="21" count="1" type="stmt"/>
+      <line num="26" count="1" type="cond" truecount="1" falsecount="1"/>
+      <line num="27" count="0" type="stmt"/>
+      <line num="28" count="0" type="stmt"/>
+      <line num="29" count="0" type="stmt"/>
+      <line num="30" count="0" type="stmt"/>
+      <line num="31" count="0" type="stmt"/>
+      <line num="32" count="0" type="stmt"/>
+      <line num="33" count="0" type="stmt"/>
+      <line num="34" count="0" type="stmt"/>
+      <line num="35" count="0" type="stmt"/>
+      <line num="39" count="1" type="stmt"/>
+    </file>
+  </project>
+</coverage>

@@ -1,8 +1,8 @@
-const http = require("http");
+const http = require("node:http");
 
 const PORT = 3000;
 
-const server = http.createServer((req, res) => {
+const app = http.createServer((req, res) => {
 
     if (req.url === "/health") {
         res.writeHead(200, {
@@ -23,16 +23,17 @@ const server = http.createServer((req, res) => {
 
 });
 
+if (require.main === module) {
+    app.listen(PORT, () => {
+        console.log("==================================");
+        console.log("ABC BANKING APPLICATION");
+        console.log("Environment : Development");
+        console.log("Version : 1.0.1");
+        console.log("Login Feature Added");
+        console.log("GitHub Enterprise Lab");
+        console.log("==================================");
+        console.log(`Server running on port ${PORT}`);
+    });
+}
 
-console.log("==================================");
-console.log("ABC BANKING APPLICATION");
-console.log("Environment : Development");
-console.log("Version : 1.0.1");
-console.log("Login Feature Added");
-console.log("GitHub Enterprise Lab");
-console.log("==================================");
-
-
-server.listen(PORT, () => {
-    console.log(`Server running on port ${PORT}`);
-});
+module.exports = app;
