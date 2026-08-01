@@ -66,21 +66,29 @@ jobs:
       # -----------------------------
       # Verify Repository
       # -----------------------------
-      - name: Verify Repository Files
+      - name: Verify Repository
         run: |
-          ls -la
           pwd
+          ls -la
 
 
 
       # -----------------------------
       # Application Validation
       # -----------------------------
-      - name: Run Application Validation
+      - name: Start Application
         run: |
           node app.js &
+          APP_PID=$!
           sleep 10
-          ps aux | grep node
+
+          if ps -p $APP_PID > /dev/null
+          then
+            echo "Application started successfully"
+          else
+            echo "Application failed"
+            exit 1
+          fi
 
 
 
@@ -88,8 +96,6 @@ jobs:
       # Docker Build
       # -----------------------------
       - name: Build Docker Image
-        env:
-          DOCKER_BUILDKIT: 1
         run: |
           docker build \
           --no-cache \
@@ -98,25 +104,34 @@ jobs:
 
 
       # -----------------------------
-      # Docker Image Verification
+      # Verify Docker Image
       # -----------------------------
       - name: Verify Docker Image
         run: |
           docker images
-          docker run --rm $IMAGE_NAME:$IMAGE_TAG node --version
-          docker run --rm $IMAGE_NAME:$IMAGE_TAG npm --version
-          docker run --rm $IMAGE_NAME:$IMAGE_TAG npm ls tar || true
+
+          docker run --rm \
+          $IMAGE_NAME:$IMAGE_TAG \
+          node --version
+
+          docker run --rm \
+          $IMAGE_NAME:$IMAGE_TAG \
+          npm --version
+
+          docker run --rm \
+          $IMAGE_NAME:$IMAGE_TAG \
+          npm ls tar || true
 
 
 
       # -----------------------------
-      # Setup Trivy Cache
+      # Trivy Cache
       # -----------------------------
       - name: Cache Trivy Database
         uses: actions/cache@v4
         with:
           path: ~/.cache/trivy
-          key: trivy-db
+          key: trivy-${{ runner.os }}
 
 
 
@@ -124,17 +139,20 @@ jobs:
       # Trivy Filesystem Scan
       # -----------------------------
       - name: Trivy Filesystem Scan
+        continue-on-error: false
         run: |
+
           docker run --rm \
           -v "${{ github.workspace }}:/workspace" \
           -v ~/.cache/trivy:/root/.cache/trivy \
           -w /workspace \
           aquasec/trivy:latest \
           fs \
-          --format table \
+          --scanners vuln \
           --severity HIGH,CRITICAL \
           --ignore-unfixed \
-          --exit-code 1 .
+          --exit-code 1 \
+          .
 
 
 
@@ -142,13 +160,15 @@ jobs:
       # Trivy Docker Image Scan
       # -----------------------------
       - name: Trivy Docker Image Scan
+        continue-on-error: false
         run: |
+
           docker run --rm \
           -v /var/run/docker.sock:/var/run/docker.sock \
           -v ~/.cache/trivy:/root/.cache/trivy \
           aquasec/trivy:latest \
           image \
-          --format table \
+          --scanners vuln \
           --severity HIGH,CRITICAL \
           --ignore-unfixed \
           --exit-code 1 \
