@@ -76,7 +76,7 @@ jobs:
       # Trivy Filesystem Scan
       # -----------------------------
       - name: Trivy Filesystem Scan
-        uses: aquasecurity/trivy-action@0.30.0
+        uses: aquasecurity/trivy-action@v0.30.0
         with:
           scan-type: fs
           scan-ref: .
@@ -88,8 +88,8 @@ jobs:
       # -----------------------------
       # Trivy Docker Image Scan
       # -----------------------------
-      - name: Trivy Image Scan
-        uses: aquasecurity/trivy-action@0.30.0
+      - name: Trivy Docker Image Scan
+        uses: aquasecurity/trivy-action@v0.30.0
         with:
           image-ref: banking-api:latest
           severity: CRITICAL,HIGH
