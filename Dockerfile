@@ -15,8 +15,9 @@ FROM node:22.23.1-bookworm-slim
 
 WORKDIR /app
 
-# Copy only the built app + its installed node_modules — not npm's own internals
 COPY --from=builder /app /app
+
+RUN rm -rf /usr/local/lib/node_modules/npm /usr/local/bin/npm /usr/local/bin/npx
 
 USER node
 
