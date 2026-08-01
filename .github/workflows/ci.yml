@@ -75,28 +75,28 @@ jobs:
 
 
       # -----------------------------
-      # Trivy Filesystem Scan
+      # Trivy Filesystem Scan (direct container - bypasses broken trivy-action dependency)
       # -----------------------------
       - name: Trivy Filesystem Scan
-        uses: aquasecurity/trivy-action@v0.28.0
-        with:
-          scan-type: fs
-          scan-ref: .
-          severity: CRITICAL,HIGH
-          format: table
-          exit-code: 1
+        run: |
+          docker run --rm \
+            -v "${{ github.workspace }}:/workspace" \
+            -w /workspace \
+            aquasecurity/trivy:latest \
+            fs --format table --severity CRITICAL,HIGH --exit-code 1 .
 
 
       # -----------------------------
-      # Trivy Docker Image Scan
+      # Trivy Docker Image Scan (direct container - bypasses broken trivy-action dependency)
       # -----------------------------
       - name: Trivy Docker Image Scan
-        uses: aquasecurity/trivy-action@v0.28.0
-        with:
-          image-ref: banking-api:latest
-          severity: CRITICAL,HIGH
-          format: table
-          exit-code: 1
+        run: |
+          docker run --rm \
+            -v /var/run/docker.sock:/var/run/docker.sock \
+            -v "${{ github.workspace }}:/workspace" \
+            -w /workspace \
+            aquasecurity/trivy:latest \
+            image --format table --severity CRITICAL,HIGH --exit-code 1 banking-api:latest
 
 
       # -----------------------------
