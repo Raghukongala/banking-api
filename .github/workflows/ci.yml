@@ -17,11 +17,19 @@ permissions:
   security-events: write
 
 
+env:
+  IMAGE_NAME: banking-api
+  IMAGE_TAG: latest
+
+
 jobs:
 
   build:
+
     name: Build Security Quality Pipeline
+
     runs-on: ubuntu-latest
+
     timeout-minutes: 20
 
 
@@ -35,6 +43,7 @@ jobs:
         uses: actions/checkout@v4
 
 
+
       # -----------------------------
       # Setup Node.js
       # -----------------------------
@@ -45,16 +54,13 @@ jobs:
           cache: npm
 
 
+
       # -----------------------------
       # Install Dependencies
       # -----------------------------
       - name: Install Dependencies
-        run: |
-          if [ -f package-lock.json ]; then
-            npm ci
-          else
-            npm install
-          fi
+        run: npm ci
+
 
 
       # -----------------------------
@@ -66,24 +72,29 @@ jobs:
           pwd
 
 
+
       # -----------------------------
       # Application Validation
       # -----------------------------
-      - name: Run Application
+      - name: Run Application Validation
         run: |
           node app.js &
           sleep 10
           ps aux | grep node
 
 
+
       # -----------------------------
       # Docker Build
       # -----------------------------
       - name: Build Docker Image
+        env:
+          DOCKER_BUILDKIT: 1
         run: |
           docker build \
           --no-cache \
-          -t banking-api:latest .
+          -t $IMAGE_NAME:$IMAGE_TAG .
+
 
 
       # -----------------------------
@@ -92,9 +103,21 @@ jobs:
       - name: Verify Docker Image
         run: |
           docker images
-          docker run --rm banking-api:latest node --version
-          docker run --rm banking-api:latest npm --version
-          docker run --rm banking-api:latest npm ls tar || true
+          docker run --rm $IMAGE_NAME:$IMAGE_TAG node --version
+          docker run --rm $IMAGE_NAME:$IMAGE_TAG npm --version
+          docker run --rm $IMAGE_NAME:$IMAGE_TAG npm ls tar || true
+
+
+
+      # -----------------------------
+      # Setup Trivy Cache
+      # -----------------------------
+      - name: Cache Trivy Database
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/trivy
+          key: trivy-db
+
 
 
       # -----------------------------
@@ -104,6 +127,7 @@ jobs:
         run: |
           docker run --rm \
           -v "${{ github.workspace }}:/workspace" \
+          -v ~/.cache/trivy:/root/.cache/trivy \
           -w /workspace \
           aquasec/trivy:latest \
           fs \
@@ -113,6 +137,7 @@ jobs:
           --exit-code 1 .
 
 
+
       # -----------------------------
       # Trivy Docker Image Scan
       # -----------------------------
@@ -120,13 +145,14 @@ jobs:
         run: |
           docker run --rm \
           -v /var/run/docker.sock:/var/run/docker.sock \
+          -v ~/.cache/trivy:/root/.cache/trivy \
           aquasec/trivy:latest \
           image \
           --format table \
           --severity HIGH,CRITICAL \
           --ignore-unfixed \
           --exit-code 1 \
-          banking-api:latest
+          $IMAGE_NAME:$IMAGE_TAG
 
 
 
