@@ -1,0 +1,9 @@
+{
+  "name": "banking-api",
+  "version": "1.0.0",
+  "description": "Enterprise GitHub Actions Lab",
+  "main": "app.js",
+  "scripts": {
+    "start": "node app.js"
+  }
+}
