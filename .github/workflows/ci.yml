@@ -1,7 +1,12 @@
-name: CI Pipeline
+name: Enterprise CI
 
 on:
   push:
+    branches:
+      - main
+      - 'feature/**'
+
+  pull_request:
     branches:
       - main
 
@@ -10,19 +15,14 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout Repository
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
+      - uses: actions/setup-node@v4
         with:
           node-version: 20
 
-      - name: Verify Repository Files
-        run: ls -la
+      - run: npm install
 
-      - name: Run Application
-        run: node app.js
+      - run: node app.js
 
-      - name: Build Docker Image
-        run: docker build -t banking-api .
+      - run: docker build -t banking-api .
