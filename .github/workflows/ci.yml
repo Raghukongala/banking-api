@@ -51,7 +51,12 @@ jobs:
       # ---------------------------------
 
       - name: Checkout Repository
+
         uses: actions/checkout@v5
+
+        with:
+
+          fetch-depth: 0
 
 
 
@@ -136,10 +141,8 @@ jobs:
         run: |
 
           docker build \
-
-          --no-cache \
-
-          -t $IMAGE_NAME:$IMAGE_TAG .
+            --no-cache \
+            -t $IMAGE_NAME:$IMAGE_TAG .
 
 
 
@@ -151,14 +154,10 @@ jobs:
 
         run: |
 
-
           docker run -d \
-
-          --name banking-container \
-
-          -p 3000:3000 \
-
-          $IMAGE_NAME:$IMAGE_TAG
+            --name banking-container \
+            -p 3000:3000 \
+            $IMAGE_NAME:$IMAGE_TAG
 
 
           sleep 10
@@ -197,28 +196,17 @@ jobs:
 
         run: |
 
-
           docker run --rm \
-
-          -v "${{ github.workspace }}:/workspace" \
-
-          -v ~/.cache/trivy:/root/.cache/trivy \
-
-          -w /workspace \
-
-          aquasec/trivy:latest \
-
-          fs \
-
-          --scanners vuln \
-
-          --severity HIGH,CRITICAL \
-
-          --ignore-unfixed \
-
-          --exit-code 1 \
-
-          .
+            -v "${{ github.workspace }}:/workspace" \
+            -v ~/.cache/trivy:/root/.cache/trivy \
+            -w /workspace \
+            aquasec/trivy:latest \
+            fs \
+            --scanners vuln \
+            --severity HIGH,CRITICAL \
+            --ignore-unfixed \
+            --exit-code 1 \
+            .
 
 
 
@@ -230,24 +218,15 @@ jobs:
 
         run: |
 
-
           docker run --rm \
-
-          -v /var/run/docker.sock:/var/run/docker.sock \
-
-          -v ~/.cache/trivy:/root/.cache/trivy \
-
-          aquasec/trivy:latest \
-
-          image \
-
-          --severity HIGH,CRITICAL \
-
-          --ignore-unfixed \
-
-          --exit-code 1 \
-
-          $IMAGE_NAME:$IMAGE_TAG
+            -v /var/run/docker.sock:/var/run/docker.sock \
+            -v ~/.cache/trivy:/root/.cache/trivy \
+            aquasec/trivy:latest \
+            image \
+            --severity HIGH,CRITICAL \
+            --ignore-unfixed \
+            --exit-code 1 \
+            $IMAGE_NAME:$IMAGE_TAG
 
 
 
