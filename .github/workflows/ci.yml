@@ -42,7 +42,6 @@ jobs:
 
       # -----------------------------
       # Install Dependencies
-      # (uses npm ci if a lock file exists, falls back to npm install if not)
       # -----------------------------
       - name: Install Dependencies
         run: |
@@ -82,27 +81,25 @@ jobs:
 
 
       # -----------------------------
-      # Trivy Filesystem Scan (direct container - bypasses trivy-action dependency issues)
+      # Trivy Filesystem Scan
       # -----------------------------
       - name: Trivy Filesystem Scan
         run: |
           docker run --rm \
             -v "${{ github.workspace }}:/workspace" \
             -w /workspace \
-            aquasecurity/trivy:latest \
+            aquasec/trivy:latest \
             fs --format table --severity CRITICAL,HIGH --exit-code 1 .
 
 
       # -----------------------------
-      # Trivy Docker Image Scan (direct container - bypasses trivy-action dependency issues)
+      # Trivy Docker Image Scan
       # -----------------------------
       - name: Trivy Docker Image Scan
         run: |
           docker run --rm \
             -v /var/run/docker.sock:/var/run/docker.sock \
-            -v "${{ github.workspace }}:/workspace" \
-            -w /workspace \
-            aquasecurity/trivy:latest \
+            aquasec/trivy:latest \
             image --format table --severity CRITICAL,HIGH --exit-code 1 banking-api:latest
 
 
