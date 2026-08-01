@@ -38,14 +38,21 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: 20
-          cache: npm
 
 
       # -----------------------------
       # Install Dependencies
+      # (uses npm ci if a lock file exists, falls back to npm install if not)
       # -----------------------------
       - name: Install Dependencies
-        run: npm ci
+        run: |
+          if [ -f package-lock.json ] || [ -f npm-shrinkwrap.json ]; then
+            echo "Lock file found, running npm ci"
+            npm ci
+          else
+            echo "No lock file found, running npm install"
+            npm install
+          fi
 
 
       # -----------------------------
@@ -75,7 +82,7 @@ jobs:
 
 
       # -----------------------------
-      # Trivy Filesystem Scan (direct container - bypasses broken trivy-action dependency)
+      # Trivy Filesystem Scan (direct container - bypasses trivy-action dependency issues)
       # -----------------------------
       - name: Trivy Filesystem Scan
         run: |
@@ -87,7 +94,7 @@ jobs:
 
 
       # -----------------------------
-      # Trivy Docker Image Scan (direct container - bypasses broken trivy-action dependency)
+      # Trivy Docker Image Scan (direct container - bypasses trivy-action dependency issues)
       # -----------------------------
       - name: Trivy Docker Image Scan
         run: |
