@@ -4,40 +4,52 @@ on:
   push:
     branches:
       - main
+      - develop
       - feature/**
+
   pull_request:
     branches:
+      - develop
       - main
+
 
 permissions:
   contents: read
   pull-requests: write
-  security-events: write
+  packages: write
+
 
 jobs:
+
   build:
+
     runs-on: ubuntu-latest
 
     steps:
+
       - name: Checkout Repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           fetch-depth: 0
 
+
       - name: Setup Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v5
         with:
           node-version: 20
           cache: npm
 
+
       - name: Install Dependencies
         run: npm ci
+
 
       - name: Run Unit Tests
         run: npm test -- --coverage
 
+
       - name: SonarCloud Scan
-        uses: SonarSource/sonarqube-scan-action@v5
+        uses: SonarSource/sonarqube-scan-action@v6
         env:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
         with:
@@ -46,12 +58,39 @@ jobs:
             -Dsonar.organization=${{ secrets.SONAR_ORGANIZATION }}
             -Dsonar.javascript.lcov.reportPaths=coverage/lcov.info
 
+
+      - name: Login to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+
       - name: Build Docker Image
-        run: docker build -t banking-api:${{ github.sha }} .
+        run: |
+          IMAGE_NAME=ghcr.io/${GITHUB_REPOSITORY_OWNER,,}/banking-api
+
+          echo "IMAGE_NAME=$IMAGE_NAME" >> $GITHUB_ENV
+
+          docker build \
+            -t $IMAGE_NAME:${{ github.sha }} \
+            .
+
+
+      - name: Push Docker Image to GHCR
+        run: |
+          docker push \
+            ${{ env.IMAGE_NAME }}:${{ github.sha }}
+
 
       - name: Run Docker Container
         run: |
-          docker run -d --name banking-container-test -p 3000:3000 banking-api:${{ github.sha }}
+          docker run -d \
+            --name banking-container-test \
+            -p 3000:3000 \
+            ${{ env.IMAGE_NAME }}:${{ github.sha }}
+
 
       - name: Wait for Application
         run: |
@@ -61,21 +100,26 @@ jobs:
             fi
             sleep 2
           done
+
           echo "Health check failed"
+          docker logs banking-container-test
           exit 1
+
 
       - name: Check Running Containers
         run: docker ps -a
 
+
       - name: Show Container Logs
         run: docker logs banking-container-test
+
 
       - name: Verify Health Endpoint
         run: |
           curl --fail http://127.0.0.1:3000/health
 
-      - name: Run Trivy filesystem scan
-        id: trivy
+
+      - name: Run Trivy Filesystem Scan
         continue-on-error: true
         run: |
           docker run --rm \
@@ -86,21 +130,72 @@ jobs:
             --scanners vuln \
             --severity HIGH,CRITICAL \
             --ignore-unfixed \
-            --format sarif \
-            --output trivy-results.sarif \
+            --format table \
             .
 
-      - name: Upload Trivy SARIF report
+
+      - name: Generate Trivy Report
         if: always()
-        uses: github/codeql-action/upload-sarif@v3
+        run: |
+          docker run --rm \
+            -v "${{ github.workspace }}:/workspace" \
+            -w /workspace \
+            aquasec/trivy:latest \
+            fs \
+            --scanners vuln \
+            --severity HIGH,CRITICAL \
+            --ignore-unfixed \
+            --format json \
+            --output trivy-report.json \
+            .
+
+
+      - name: Comment Trivy Report on PR
+        if: github.event_name == 'pull_request'
+        uses: actions/github-script@v7
         with:
-          sarif_file: trivy-results.sarif
-          category: trivy
+          script: |
+            const fs = require('fs');
+
+            let body =
+            `## 🔐 Trivy Security Scan Report
+
+            Scanner: Trivy Open Source
+
+            Severity Checked:
+            - HIGH
+            - CRITICAL
+
+            `;
+
+            if(fs.existsSync('trivy-report.json')){
+              const report = fs.readFileSync(
+                'trivy-report.json',
+                'utf8'
+              );
+
+              body += `
+\`\`\`json
+${report.substring(0,3000)}
+\`\`\`
+`;
+            }
+
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body
+            });
+
 
       - name: Stop Container
         if: always()
-        run: docker stop banking-container-test || true
+        run: |
+          docker stop banking-container-test || true
+
 
       - name: Remove Container
         if: always()
-        run: docker rm banking-container-test || true
+        run: |
+          docker rm banking-container-test || true
