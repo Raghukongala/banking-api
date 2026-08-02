@@ -5,24 +5,30 @@ on:
     branches:
       - main
       - feature/**
+
   pull_request:
     branches:
       - main
 
+
 permissions:
   contents: read
   pull-requests: write
-  security-events: write
+
 
 jobs:
+
   build:
+
     runs-on: ubuntu-latest
 
     steps:
+
       - name: Checkout Repository
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
+
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
@@ -30,11 +36,14 @@ jobs:
           node-version: 20
           cache: npm
 
+
       - name: Install Dependencies
         run: npm ci
 
+
       - name: Run Unit Tests
         run: npm test -- --coverage
+
 
       - name: SonarCloud Scan
         uses: SonarSource/sonarqube-scan-action@v5
@@ -46,12 +55,18 @@ jobs:
             -Dsonar.organization=${{ secrets.SONAR_ORGANIZATION }}
             -Dsonar.javascript.lcov.reportPaths=coverage/lcov.info
 
+
       - name: Build Docker Image
         run: docker build -t banking-api:${{ github.sha }} .
 
+
       - name: Run Docker Container
         run: |
-          docker run -d --name banking-container-test -p 3000:3000 banking-api:${{ github.sha }}
+          docker run -d \
+          --name banking-container-test \
+          -p 3000:3000 \
+          banking-api:${{ github.sha }}
+
 
       - name: Wait for Application
         run: |
@@ -61,21 +76,26 @@ jobs:
             fi
             sleep 2
           done
+
           echo "Health check failed"
           exit 1
+
 
       - name: Check Running Containers
         run: docker ps -a
 
+
       - name: Show Container Logs
         run: docker logs banking-container-test
+
 
       - name: Verify Health Endpoint
         run: |
           curl --fail http://127.0.0.1:3000/health
 
-      - name: Run Trivy filesystem scan
-        id: trivy
+
+      # Trivy Open Source Scan
+      - name: Run Trivy Filesystem Scan
         continue-on-error: true
         run: |
           docker run --rm \
@@ -86,21 +106,59 @@ jobs:
             --scanners vuln \
             --severity HIGH,CRITICAL \
             --ignore-unfixed \
-            --format sarif \
-            --output trivy-results.sarif \
+            --format table \
             .
 
-      - name: Upload Trivy SARIF report
+
+      # Generate Report File
+      - name: Generate Trivy Report
         if: always()
-        uses: github/codeql-action/upload-sarif@v3
+        run: |
+          docker run --rm \
+            -v "${{ github.workspace }}:/workspace" \
+            -w /workspace \
+            aquasec/trivy:latest \
+            fs \
+            --scanners vuln \
+            --severity HIGH,CRITICAL \
+            --ignore-unfixed \
+            --format json \
+            --output trivy-report.json \
+            .
+
+
+      # Post Report in Pull Request
+      - name: Comment Trivy Report on PR
+        if: github.event_name == 'pull_request'
+        uses: actions/github-script@v7
         with:
-          sarif_file: trivy-results.sarif
-          category: trivy
+          script: |
+            const fs = require('fs');
+            const path = 'trivy-report.json';
+            let body = '## 🔐 Trivy Security Scan Report\n\n**Scanner:** Trivy Open Source\n\n**Severity Checked:**\n- HIGH\n- CRITICAL\n\n';
+
+            if (fs.existsSync(path)) {
+              const report = fs.readFileSync(path, 'utf8');
+              body += `Report:\n\n\`\`\`json\n${report.substring(0, 3000)}\n\`\`\`\n`;
+            } else {
+              body += 'No report was generated.';
+            }
+
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body
+            });
+
 
       - name: Stop Container
         if: always()
-        run: docker stop banking-container-test || true
+        run: |
+          docker stop banking-container-test || true
+
 
       - name: Remove Container
         if: always()
-        run: docker rm banking-container-test || true
+        run: |
+          docker rm banking-container-test || true
