@@ -150,61 +150,60 @@ jobs:
 
 
       # Trivy Scan
-
       - name: Run Trivy Filesystem Scan
         continue-on-error: true
-
         run: |
-
           docker run --rm \
-          -v "${{ github.workspace }}:/workspace" \
-          -w /workspace \
-          aquasec/trivy:latest \
-          fs \
-          --scanners vuln \
-          --severity HIGH,CRITICAL \
-          --ignore-unfixed \
-          --format table \
-          .
+            -v "${{ github.workspace }}:/workspace" \
+            -w /workspace \
+            aquasec/trivy:latest \
+            fs \
+            --scanners vuln \
+            --severity HIGH,CRITICAL \
+            --ignore-unfixed \
+            --format table \
+            .
 
+      - name: Run Trivy Image Scan
+        continue-on-error: true
+        run: |
+          docker run --rm \
+            -v /var/run/docker.sock:/var/run/docker.sock \
+            aquasec/trivy:latest \
+            image \
+            --severity HIGH,CRITICAL \
+            --ignore-unfixed \
+            --format table \
+            ${{ env.IMAGE_NAME }}:${{ github.sha }}
 
-
-      # Generate Report
-
-      - name: Generate Trivy Report
-
+      - name: Generate Trivy Summary Report
         if: always()
-
         run: |
-
-          docker run --rm \
-          -v "${{ github.workspace }}:/workspace" \
-          -w /workspace \
-          aquasec/trivy:latest \
-          fs \
-          --scanners vuln \
-          --severity HIGH,CRITICAL \
-          --ignore-unfixed \
-          --format json \
-          --output trivy-report.json \
-          .
-
-
+          echo "## 🔐 Trivy Security Scan Report" > trivy-summary.md
+          echo "" >> trivy-summary.md
+          echo "Scanner: Trivy Open Source" >> trivy-summary.md
+          echo "" >> trivy-summary.md
+          echo "Severity Checked:" >> trivy-summary.md
+          echo "- HIGH" >> trivy-summary.md
+          echo "- CRITICAL" >> trivy-summary.md
+          echo "" >> trivy-summary.md
+          echo "Image: ${{ env.IMAGE_NAME }}:${{ github.sha }}" >> trivy-summary.md
+          echo "Commit: ${{ github.sha }}" >> trivy-summary.md
 
       # PR Comment
       - name: Comment Trivy Report on PR
-
         if: github.event_name == 'pull_request'
         uses: actions/github-script@v7
         with:
           script: |
             const fs = require('fs');
-            const path = 'trivy-report.json';
-            let body = '## 🔐 Trivy Security Scan Report\n\nScanner: Trivy Open Source\n\nSeverity Checked:\n- HIGH\n- CRITICAL\n\n';
+            const path = 'trivy-summary.md';
+            let body = '';
 
             if (fs.existsSync(path)) {
-              const report = fs.readFileSync(path, 'utf8');
-              body += `\n\n\`\`\`json\n${report.substring(0, 3000)}\n\`\`\`\n`;
+              body = fs.readFileSync(path, 'utf8');
+            } else {
+              body = '## 🔐 Trivy Security Scan Report\n\nNo summary was generated.';
             }
 
             github.rest.issues.createComment({
