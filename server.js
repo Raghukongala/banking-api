@@ -1,8 +1,9 @@
 const app = require("./app");
 
-const PORT = 3000;
+const PORT = process.env.PORT || 3000;
+const HOST = "0.0.0.0";
 
-app.listen(PORT, () => {
+app.listen(PORT, HOST, () => {
     console.log("==================================");
     console.log("ABC BANKING APPLICATION");
     console.log("Environment : Development");
@@ -10,5 +11,5 @@ app.listen(PORT, () => {
     console.log("Login Feature Added");
     console.log("GitHub Enterprise Lab");
     console.log("==================================");
-    console.log(`Server running on port ${PORT}`);
+    console.log(`Server running on http://${HOST}:${PORT}`);
 });

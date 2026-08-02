@@ -36,7 +36,15 @@ jobs:
           docker run -d --name banking-container-test -p 3000:3000 banking-api:${{ github.sha }}
 
       - name: Wait for Application
-        run: sleep 10
+        run: |
+          for i in {1..10}; do
+            if curl --fail --silent http://127.0.0.1:3000/health; then
+              exit 0
+            fi
+            sleep 2
+          done
+          echo "Health check failed"
+          exit 1
 
       - name: Check Running Containers
         run: docker ps -a
@@ -46,7 +54,7 @@ jobs:
 
       - name: Verify Health Endpoint
         run: |
-          curl --fail http://localhost:3000/health
+          curl --fail http://127.0.0.1:3000/health
 
       - name: Stop Container
         if: always()
