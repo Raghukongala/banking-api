@@ -2,28 +2,21 @@ const request = require("supertest");
 const app = require("../app");
 
 describe("Banking API", () => {
-
-    test("GET /health should return UP status", async () => {
-
-        const response = await request(app)
-            .get("/health");
+    test("GET /health should return application health", async () => {
+        const response = await request(app).get("/health");
 
         expect(response.statusCode).toBe(200);
-        expect(response.body.status).toBe("UP");
-        expect(response.body.application).toBe("banking-api");
-
+        expect(response.body).toEqual({
+            status: "UP",
+            application: "banking-api",
+            version: "1.0.1"
+        });
     });
-
 
     test("GET / should return application message", async () => {
-
-        const response = await request(app)
-            .get("/");
+        const response = await request(app).get("/");
 
         expect(response.statusCode).toBe(200);
-        expect(response.text)
-            .toBe("ABC Banking Application Running");
-
+        expect(response.text).toBe("ABC Banking Application Running");
     });
-
 });
