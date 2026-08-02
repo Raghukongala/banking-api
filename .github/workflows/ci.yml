@@ -1,19 +1,23 @@
 name: Enterprise CI
 
 on:
+
   push:
     branches:
       - main
+      - develop
       - feature/**
 
   pull_request:
     branches:
+      - develop
       - main
 
 
 permissions:
   contents: read
   pull-requests: write
+  packages: write
 
 
 jobs:
@@ -21,6 +25,7 @@ jobs:
   build:
 
     runs-on: ubuntu-latest
+
 
     steps:
 
@@ -49,6 +54,7 @@ jobs:
         uses: SonarSource/sonarqube-scan-action@v6
         env:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+
         with:
           args: >
             -Dsonar.projectKey=${{ secrets.SONAR_PROJECT_KEY }}
@@ -56,45 +62,94 @@ jobs:
             -Dsonar.javascript.lcov.reportPaths=coverage/lcov.info
 
 
-      - name: Build Docker Image
-        run: docker build -t banking-api:${{ github.sha }} .
 
+      # Login GHCR
+      - name: Login to GHCR
+        uses: docker/login-action@v3
+
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+
+
+      # Build Docker Image
+
+      - name: Build Docker Image
+        run: |
+
+          IMAGE_NAME=ghcr.io/${GITHUB_REPOSITORY_OWNER,,}/banking-api
+
+          echo "IMAGE_NAME=$IMAGE_NAME" >> $GITHUB_ENV
+
+
+          docker build \
+            -t $IMAGE_NAME:${{ github.sha }} .
+
+
+
+      # Push Image
+
+      - name: Push Docker Image to GHCR
+        run: |
+
+          docker push \
+          ${{ env.IMAGE_NAME }}:${{ github.sha }}
+
+
+
+      # Container Validation
 
       - name: Run Docker Container
         run: |
+
           docker run -d \
-          --name banking-container-test \
-          -p 3000:3000 \
-          banking-api:${{ github.sha }}
+            --name banking-container-test \
+            -p 3000:3000 \
+            ${{ env.IMAGE_NAME }}:${{ github.sha }}
+
 
 
       - name: Wait for Application
         run: |
+
           for i in {1..10}; do
-            if curl --fail --silent http://127.0.0.1:3000/health; then
+
+            if curl --fail --silent http://127.0.0.1:3000/health;
+            then
               exit 0
             fi
+
             sleep 2
+
           done
 
-          echo "Health check failed"
+
+          docker logs banking-container-test
+
           exit 1
+
 
 
       - name: Check Running Containers
         run: docker ps -a
 
 
+
       - name: Show Container Logs
         run: docker logs banking-container-test
 
 
+
       - name: Verify Health Endpoint
         run: |
+
           curl --fail http://127.0.0.1:3000/health
 
 
-      # Trivy Open Source Scan
+
+      # Trivy Scan
       - name: Run Trivy Filesystem Scan
         continue-on-error: true
         run: |
@@ -109,39 +164,46 @@ jobs:
             --format table \
             .
 
-
-      # Generate Report File
-      - name: Generate Trivy Report
-        if: always()
+      - name: Run Trivy Image Scan
+        continue-on-error: true
         run: |
           docker run --rm \
-            -v "${{ github.workspace }}:/workspace" \
-            -w /workspace \
+            -v /var/run/docker.sock:/var/run/docker.sock \
             aquasec/trivy:latest \
-            fs \
-            --scanners vuln \
+            image \
             --severity HIGH,CRITICAL \
             --ignore-unfixed \
-            --format json \
-            --output trivy-report.json \
-            .
+            --format table \
+            ${{ env.IMAGE_NAME }}:${{ github.sha }}
 
+      - name: Generate Trivy Summary Report
+        if: always()
+        run: |
+          echo "## 🔐 Trivy Security Scan Report" > trivy-summary.md
+          echo "" >> trivy-summary.md
+          echo "Scanner: Trivy Open Source" >> trivy-summary.md
+          echo "" >> trivy-summary.md
+          echo "Severity Checked:" >> trivy-summary.md
+          echo "- HIGH" >> trivy-summary.md
+          echo "- CRITICAL" >> trivy-summary.md
+          echo "" >> trivy-summary.md
+          echo "Image: ${{ env.IMAGE_NAME }}:${{ github.sha }}" >> trivy-summary.md
+          echo "Commit: ${{ github.sha }}" >> trivy-summary.md
 
-      # Post Report in Pull Request
+      # PR Comment
       - name: Comment Trivy Report on PR
         if: github.event_name == 'pull_request'
         uses: actions/github-script@v7
         with:
           script: |
             const fs = require('fs');
-            const path = 'trivy-report.json';
-            let body = '## 🔐 Trivy Security Scan Report\n\n**Scanner:** Trivy Open Source\n\n**Severity Checked:**\n- HIGH\n- CRITICAL\n\n';
+            const path = 'trivy-summary.md';
+            let body = '';
 
             if (fs.existsSync(path)) {
-              const report = fs.readFileSync(path, 'utf8');
-              body += `Report:\n\n\`\`\`json\n${report.substring(0, 3000)}\n\`\`\`\n`;
+              body = fs.readFileSync(path, 'utf8');
             } else {
-              body += 'No report was generated.';
+              body = '## 🔐 Trivy Security Scan Report\n\nNo summary was generated.';
             }
 
             github.rest.issues.createComment({
@@ -152,13 +214,21 @@ jobs:
             });
 
 
+
       - name: Stop Container
+
         if: always()
+
         run: |
+
           docker stop banking-container-test || true
 
 
+
       - name: Remove Container
+
         if: always()
+
         run: |
+
           docker rm banking-container-test || true
